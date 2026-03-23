@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>起卦</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --white: #f0ece4;
+  --bg: #141210;
+  --bg2: #1e1b17;
+  --bg3: #252118;
+  --ink: #e8e0d0;
+  --ink2: #b0a898;
+  --ink3: #6a6358;
+  --line: #2e2a24;
+  --accent: #c8a96e;
+  --accent2: #9b845a;
+  --accent-dim: rgba(200,169,110,0.12);
+  --danger: #c0392b;
+  --r: 12px;
+  --serif: 'Noto Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: var(--serif);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ── App shell ── */
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  box-shadow: 0 0 80px rgba(0,0,0,0.6);
+}
+
+/* ── Screens ── */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; pointer-events: none;
+  transform: translateX(30px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  overflow-y: auto; overflow-x: hidden;
+}
+.screen.active {
+  opacity: 1; pointer-events: all;
+  transform: translateX(0);
+}
+.screen.exit-left {
+  opacity: 0; pointer-events: none;
+  transform: translateX(-30px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* ── Scrollbar ── */
+.screen::-webkit-scrollbar { width: 0; }
+
+/* ── Nav bar ── */
+.nav {
+  display: flex; align-items: center;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  position: sticky; top: 0; z-index: 10;
+  flex-shrink: 0;
+}
+.nav-back {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border-radius: 8px;
+  transition: background 0.15s;
+  color: var(--ink2); font-size: 18px;
+  border: none; background: transparent;
+}
+.nav-back:hover { background: var(--bg2); }
+.nav-title {
+  flex: 1; text-align: center;
+  font-size: 15px; font-weight: 500;
+  color: var(--ink); letter-spacing: 0.05em;
+}
+.nav-action {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border-radius: 8px;
+  transition: background 0.15s;
+  color: var(--ink3); font-size: 16px;
+  border: none; background: transparent;
+}
+.nav-action:hover { background: var(--bg2); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 14px 24px;
+  border-radius: var(--r);
+  font-family: var(--serif);
+  font-size: 15px; font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #1a1510;
+  width: 100%;
+}
+.btn-primary:hover { background: #dbbf84; }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { background: #3a3530; color: var(--ink3); cursor: default; }
+.btn-secondary {
+  background: transparent;
+  color: var(--ink2);
+  border: 1px solid var(--line);
+  width: 100%;
+}
+.btn-secondary:hover { border-color: var(--accent2); color: var(--ink); }
+.btn-ghost {
+  background: transparent;
+  color: var(--ink3);
+  font-size: 13px;
+}
+.btn-ghost:hover { color: var(--ink2); }
+
+/* ═══════════════════════════════════════
+   HOME SCREEN
+════════════════════════════════════════ */
+#screen-home {
+  padding: 0;
+  cursor: text;
+  justify-content: space-between;
+  background: var(--bg);
+}
+.home-bg-gif {
+  position: absolute; inset: 0;
+  z-index: 0; overflow: hidden;
+}
+.home-bg-gif img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0.25;
+  filter: saturate(0.5) brightness(0.45);
+  pointer-events: none;
+}
+.home-bg-gif::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom,
+    rgba(20,18,16,0.7) 0%,
+    rgba(20,18,16,0.05) 38%,
+    rgba(20,18,16,0.05) 62%,
+    rgba(20,18,16,0.92) 100%
+  );
+}
+
+/* 隐形 textarea 覆盖整个首页 */
+#home-invisible-input {
+  position: absolute; inset: 0;
+  opacity: 0;
+  width: 100%; height: 100%;
+  cursor: text;
+  resize: none;
+  border: none; outline: none;
+  font-size: 16px; /* prevent iOS zoom */
+  z-index: 5;
+  background: transparent;
+}
+
+.home-top {
+  padding: 52px 32px 0;
+  text-align: center;
+  pointer-events: none;
+  position: relative; z-index: 2;
+}
+.home-logo {
+  width: 56px; height: 56px;
+  background: rgba(200,169,110,0.12);
+  border: 1px solid rgba(200,169,110,0.3);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 18px;
+  font-size: 24px;
+  box-shadow: 0 6px 30px rgba(200,169,110,0.1);
+}
+.home-title {
+  font-size: 28px; font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.12em;
+  margin-bottom: 6px;
+  text-shadow: 0 0 40px rgba(200,169,110,0.3);
+}
+.home-subtitle {
+  font-size: 12px;
+  color: var(--ink3);
+  letter-spacing: 0.18em;
+}
+
+/* 问题显示区 — 居中舞台 */
+.home-stage {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px 40px;
+  pointer-events: none;
+  position: relative; z-index: 2;
+}
+.home-question-display {
+  text-align: center;
+  min-height: 60px;
+  display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
+}
+/* 占位提示 */
+.home-placeholder {
+  font-size: 17px;
+  color: rgba(176,168,152,0.55);
+  letter-spacing: 0.06em;
+  line-height: 1.8;
+  transition: opacity 0.3s;
+}
+/* 已输入文字 */
+.home-typed-text {
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--ink);
+  text-shadow: 0 0 20px rgba(200,169,110,0.2);
+  letter-spacing: 0.05em;
+  line-height: 1.75;
+  word-break: break-all;
+  display: none;
+}
+/* 闪烁光标 */
+.home-cursor {
+  display: inline-block;
+  width: 2px; height: 1.2em;
+  background: var(--accent);
+  margin-left: 2px;
+  vertical-align: middle;
+  box-shadow: 0 0 6px rgba(200,169,110,0.6);
+  border-radius: 1px;
+  animation: blink 1s step-start infinite;
+  display: none;
+}
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.home-bottom {
+  padding: 0 24px 36px;
+  display: flex; flex-direction: column; gap: 10px;
+  position: relative; z-index: 6;
+}
+.home-links {
+  display: flex; justify-content: center; gap: 24px;
+  margin-top: 4px;
+}
+.home-link {
+  font-size: 12px; color: var(--ink3);
+  cursor: pointer; letter-spacing: 0.1em;
+}
+.home-link:hover { color: var(--ink); }
+#screen-home .btn-primary {
+  background: rgba(200,169,110,0.88);
+  color: #1a1510;
+  backdrop-filter: blur(8px);
+}
+#screen-home .btn-primary:hover { background: rgba(219,191,132,0.96); }
+
+/* ═══════════════════════════════════════
+   DRAW SCREEN
+════════════════════════════════════════ */
+#screen-draw {
+  padding: 0 24px 40px;
+  align-items: center;
+}
+.draw-progress {
+  width: 100%;
+  display: flex; align-items: center; gap: 8px;
+  padding: 20px 0 24px;
+}
+.progress-step {
+  flex: 1; height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+  transition: background 0.4s;
+}
+.progress-step.done { background: var(--accent); }
+.progress-step.active { background: var(--accent2); }
+
+.draw-stage-label {
+  font-size: 11px;
+  color: var(--ink3);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.draw-stage-title {
+  font-size: 22px; font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+  letter-spacing: 0.08em;
+  margin-bottom: 32px;
+}
+
+/* Trigram card */
+.trigram-card {
+  width: 100%; max-width: 280px;
+  background: var(--bg2);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  padding: 40px 32px;
+  text-align: center;
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.trigram-card.revealed {
+  border-color: var(--accent);
+  box-shadow: 0 12px 40px rgba(200,169,110,0.12);
+}
+.trigram-glyph {
+  width: 80px; height: 80px;
+  margin: 0 auto 20px;
+  display: flex; flex-direction: column;
+  justify-content: center; gap: 10px;
+}
+.glyph-line {
+  display: flex; gap: 8px; justify-content: center; align-items: center;
+}
+.glyph-seg {
+  height: 5px; border-radius: 3px;
+  background: var(--ink3);
+  transition: background 0.3s;
+}
+.trigram-card.revealed .glyph-seg { background: var(--accent); }
+.glyph-yang { width: 72px; }
+.glyph-yin-l, .glyph-yin-r { width: 28px; }
+
+/* Shuffle animation */
+.trigram-glyph.shuffling .glyph-seg {
+  animation: seg-flash 0.08s ease-in-out infinite alternate;
+}
+@keyframes seg-flash {
+  from { opacity: 0.2; }
+  to { opacity: 0.9; }
+}
+
+.trigram-name-large {
+  font-size: 28px; font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.12em;
+  margin-bottom: 6px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.4s 0.1s, transform 0.4s 0.1s;
+}
+.trigram-card.revealed .trigram-name-large { opacity: 1; transform: none; }
+.trigram-nature {
+  font-size: 13px; color: var(--ink3);
+  letter-spacing: 0.15em;
+  opacity: 0;
+  transition: opacity 0.4s 0.2s;
+}
+.trigram-card.revealed .trigram-nature { opacity: 1; }
+.trigram-keywords {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 14px;
+  opacity: 0;
+  transition: opacity 0.4s 0.3s;
+}
+.trigram-card.revealed .trigram-keywords { opacity: 1; }
+.kw-tag {
+  padding: 4px 10px;
+  background: var(--bg2);
+  border-radius: 20px;
+  font-size: 11px;
+  color: var(--ink2);
+  letter-spacing: 0.05em;
+}
+
+.draw-hint {
+  font-size: 13px; color: var(--ink3);
+  text-align: center;
+  margin-bottom: 20px;
+  letter-spacing: 0.05em;
+  min-height: 20px;
+}
+.draw-btn-area {
+  width: 100%; max-width: 280px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* ═══════════════════════════════════════
+   RESULT SCREEN
+════════════════════════════════════════ */
+#screen-result {
+  padding: 0;
+}
+.result-hero {
+  padding: 32px 24px 28px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+.result-trigrams-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.result-tri {
+  text-align: center;
+}
+.result-tri-glyph {
+  width: 52px; height: 52px;
+  margin: 0 auto 8px;
+  display: flex; flex-direction: column;
+  justify-content: center; gap: 7px;
+}
+.result-tri-glyph .glyph-seg { background: var(--accent); }
+.result-tri-glyph .glyph-yang { width: 48px; }
+.result-tri-glyph .glyph-yin-l, .result-tri-glyph .glyph-yin-r { width: 18px; }
+.result-tri-glyph .glyph-line { gap: 6px; }
+.result-tri-label {
+  font-size: 10px; color: var(--ink3); letter-spacing: 0.15em;
+  margin-bottom: 3px;
+}
+.result-tri-name { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: 0.1em; }
+.result-tri-sub { font-size: 11px; color: var(--ink3); }
+
+.result-combine {
+  font-size: 20px; color: var(--line);
+  padding-top: 16px;
+}
+
+.result-hex-name {
+  font-size: 30px; font-weight: 700;
+  text-align: center;
+  color: var(--ink);
+  letter-spacing: 0.15em;
+  margin-bottom: 6px;
+}
+.result-hex-kws {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.result-question {
+  text-align: center;
+  font-size: 13px; color: var(--ink3);
+  padding: 10px 16px;
+  background: var(--bg2);
+  border-radius: 8px;
+  line-height: 1.6;
+}
+.result-question-label {
+  font-size: 10px; letter-spacing: 0.2em;
+  color: var(--ink3); display: block;
+  margin-bottom: 3px;
+}
+
+.result-body {
+  padding: 0 24px 40px;
+}
+
+.section {
+  padding: 22px 0;
+  border-bottom: 1px solid var(--line);
+}
+.section:last-child { border-bottom: none; }
+.section-label {
+  font-size: 10px;
+  color: var(--ink3);
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.section-text {
+  font-size: 15px;
+  color: var(--ink2);
+  line-height: 1.85;
+}
+.section-text strong { color: var(--ink); font-weight: 500; }
+
+/* 3-col grid */
+.tricard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.tricard {
+  background: var(--bg2);
+  border-radius: 10px;
+  padding: 12px 10px;
+  text-align: center;
+}
+.tricard-label {
+  font-size: 10px; color: var(--ink3);
+  letter-spacing: 0.15em; margin-bottom: 6px;
+}
+.tricard-value {
+  font-size: 13px; color: var(--ink);
+  line-height: 1.5;
+}
+
+/* Do/Don't */
+.do-dont-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.do-block, .dont-block {
+  background: var(--bg2);
+  border-radius: 10px;
+  padding: 14px 12px;
+}
+.do-block { border-top: 2px solid #4a7c59; }
+.dont-block { border-top: 2px solid #9b4a4a; }
+.do-title, .dont-title {
+  font-size: 11px; letter-spacing: 0.2em;
+  margin-bottom: 8px;
+}
+.do-title { color: #4a7c59; }
+.dont-title { color: #9b4a4a; }
+.do-item, .dont-item {
+  font-size: 12px; color: var(--ink2);
+  line-height: 1.7;
+}
+
+/* Dimensions accordion */
+.dim-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.dim-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px;
+  cursor: pointer;
+  background: var(--bg2);
+  transition: background 0.15s;
+}
+.dim-header:hover { background: var(--bg3); }
+.dim-header-left {
+  display: flex; align-items: center; gap: 10px;
+}
+.dim-icon { font-size: 16px; }
+.dim-name { font-size: 14px; font-weight: 500; color: var(--ink); }
+.dim-chevron {
+  font-size: 12px; color: var(--ink3);
+  transition: transform 0.2s;
+}
+.dim-item.open .dim-chevron { transform: rotate(180deg); }
+.dim-body {
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.3s ease;
+  padding: 0 16px;
+  font-size: 13px; color: var(--ink2);
+  line-height: 1.75;
+}
+.dim-body.open {
+  max-height: 200px;
+  padding: 0 16px 14px;
+}
+
+/* Action cards */
+.action-list {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.action-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--bg2);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.action-num {
+  width: 20px; height: 20px;
+  background: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--white); font-weight: 600;
+}
+.action-text { font-size: 13px; color: var(--ink2); line-height: 1.65; }
+
+/* Time window */
+.time-window-box {
+  background: linear-gradient(135deg, var(--bg2) 0%, var(--bg3) 100%);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.time-icon { font-size: 18px; }
+.time-text { font-size: 13px; color: var(--ink2); line-height: 1.65; }
+
+/* Result CTA */
+.result-cta {
+  padding: 20px 24px 32px;
+  border-top: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--bg);
+  position: sticky; bottom: 0;
+}
+.result-disclaimer {
+  text-align: center;
+  font-size: 10px; color: var(--ink3);
+  line-height: 1.6;
+  padding: 0 8px;
+}
+
+/* Loading state */
+.loading-overlay {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  flex: 1; gap: 16px;
+  padding: 40px;
+}
+.loading-spinner {
+  width: 36px; height: 36px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text {
+  font-size: 14px; color: var(--ink3);
+  letter-spacing: 0.1em;
+}
+
+/* ═══════════════════════════════════════
+   HISTORY SCREEN
+════════════════════════════════════════ */
+#screen-history {
+  padding: 0 0 40px;
+}
+.history-list {
+  padding: 12px 20px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.history-empty {
+  text-align: center;
+  padding: 60px 32px;
+  color: var(--ink3);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  line-height: 2;
+}
+.history-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 14px;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.history-item:hover { background: var(--bg2); }
+.history-item-left {
+  width: 44px; height: 44px;
+  background: var(--bg2);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.history-hex-mini {
+  font-size: 11px; font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+.history-item-body { flex: 1; min-width: 0; }
+.history-item-name {
+  font-size: 15px; font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.05em;
+  margin-bottom: 3px;
+}
+.history-item-q {
+  font-size: 12px; color: var(--ink3);
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-item-date {
+  font-size: 11px; color: var(--ink3);
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════
+   DISCLAIMER SCREEN
+════════════════════════════════════════ */
+#screen-disclaimer {
+  padding: 0 24px 40px;
+}
+.disclaimer-body {
+  font-size: 14px;
+  color: var(--ink2);
+  line-height: 2;
+  padding: 24px 0;
+}
+.disclaimer-body h3 {
+  font-size: 14px; font-weight: 600;
+  color: var(--ink);
+  margin: 20px 0 8px;
+  letter-spacing: 0.08em;
+}
+.disclaimer-body p { margin-bottom: 12px; }
+
+/* ═══════════════════════════════════════
+   POSTER PREVIEW
+════════════════════════════════════════ */
+.poster-modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 100;
+  display: flex; align-items: flex-end;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+.poster-modal.open { opacity: 1; pointer-events: all; }
+.poster-sheet {
+  background: var(--bg2);
+  border-radius: 24px 24px 0 0;
+  padding: 24px 24px 40px;
+  width: 100%;
+  transform: translateY(40px);
+  transition: transform 0.3s;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.poster-modal.open .poster-sheet { transform: none; }
+.poster-handle {
+  width: 36px; height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  margin: 0 auto 20px;
+}
+.poster-preview {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+.poster-preview canvas {
+  width: 100% !important;
+  height: auto !important;
+  display: block;
+}
+
+/* ═══════════════════════════════════════
+   TOAST
+════════════════════════════════════════ */
+.toast {
+  position: fixed;
+  bottom: 40px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--bg3);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 10px 20px;
+  border-radius: 24px;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 200;
+  white-space: nowrap;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+canvas#poster-canvas { display: none; }
+</style>
+
+  <!-- PWA & iOS 主屏幕支持 -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="起卦">
+  <link rel="apple-touch-icon" href="icons/icon-512.png">
+  <meta name="theme-color" content="#141210">
+</head>
+<body>
+<div id="app">
+  <!-- ── HOME ── -->
+  <div id="screen-home" class="screen active">
+    <div class="home-bg-gif"><img src="https://i.pinimg.com/originals/d6/e1/27/d6e12796914cde798323225515bd7868.gif" alt=""/></div>
+    <!-- 隐形输入框，覆盖整个首页 -->
+    <textarea id="home-invisible-input" maxlength="80" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+
+    <div class="home-top">
+      <div class="home-logo">☯</div>
+      <div class="home-title">起卦</div>
+      <div class="home-subtitle">问事 · 起卦 · 解析</div>
+    </div>
+
+    <div class="home-stage">
+      <div class="home-question-display">
+        <span class="home-placeholder" id="home-placeholder">心中默想所问之事<br>或直接起卦</span>
+        <span class="home-typed-text" id="home-typed-text"></span><span class="home-cursor" id="home-cursor"></span>
+      </div>
+    </div>
+
+    <div class="home-bottom">
+      <button class="btn btn-primary" onclick="startDraw()">起一卦</button>
+      <div class="home-links">
+        <span class="home-link" onclick="goTo('history')">历史记录</span>
+        <span class="home-link" onclick="goTo('disclaimer')">免责声明</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DRAW ── -->
+  <div id="screen-draw" class="screen">
+    <div class="nav">
+      <button class="nav-back" onclick="goTo('home')">←</button>
+      <div class="nav-title" id="draw-nav-title">起卦</div>
+      <div style="width:36px"></div>
+    </div>
+    <div style="padding:0 24px; width:100%">
+      <div class="draw-progress">
+        <div class="progress-step" id="prog-0"></div>
+        <div class="progress-step" id="prog-1"></div>
+      </div>
+    </div>
+    <div class="draw-stage-label" id="draw-stage-label">第一签</div>
+    <div class="draw-stage-title" id="draw-stage-title">摇动蓍草，起上卦</div>
+    <div class="trigram-card" id="trigram-card">
+      <div class="trigram-glyph" id="trigram-glyph">
+        <div class="glyph-line" id="glyph-top"></div>
+        <div class="glyph-line" id="glyph-mid"></div>
+        <div class="glyph-line" id="glyph-bot"></div>
+      </div>
+      <div class="trigram-name-large" id="trigram-name"></div>
+      <div class="trigram-nature" id="trigram-nature"></div>
+      <div class="trigram-keywords" id="trigram-keywords"></div>
+    </div>
+    <div class="draw-hint" id="draw-hint">专心想着您的问题</div>
+    <div class="draw-btn-area">
+      <button class="btn btn-primary" id="draw-action-btn" onclick="handleDrawAction()">✦ 摇签起卦</button>
+      <button class="btn btn-secondary" id="draw-restart-btn" onclick="startDraw()" style="display:none">重新开始</button>
+    </div>
+  </div>
+
+  <!-- ── RESULT (loading + actual) ── -->
+  <div id="screen-result" class="screen">
+    <div id="result-loading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">正在解卦……</div>
+    </div>
+    <div id="result-ready" style="display:none; flex-direction:column; flex:1">
+      <div class="result-hero">
+        <div class="result-trigrams-row">
+          <div class="result-tri">
+            <div class="result-tri-label">上卦（外卦）</div>
+            <div class="result-tri-glyph" id="res-upper-glyph"></div>
+            <div class="result-tri-name" id="res-upper-name"></div>
+            <div class="result-tri-sub" id="res-upper-nature"></div>
+          </div>
+          <div class="result-combine">×</div>
+          <div class="result-tri">
+            <div class="result-tri-label">下卦（内卦）</div>
+            <div class="result-tri-glyph" id="res-lower-glyph"></div>
+            <div class="result-tri-name" id="res-lower-name"></div>
+            <div class="result-tri-sub" id="res-lower-nature"></div>
+          </div>
+        </div>
+        <div class="result-hex-name" id="res-hex-name"></div>
+        <div class="result-hex-kws" id="res-hex-kws"></div>
+        <div class="result-question" id="res-question-box" style="display:none">
+          <span class="result-question-label">所问之事</span>
+          <span id="res-question-text"></span>
+        </div>
+      </div>
+      <div class="result-body">
+        <div class="section" id="sec-overview">
+          <div class="section-label">总体结论</div>
+          <div class="section-text" id="sec-overview-text"></div>
+        </div>
+        <div class="section">
+          <div class="section-label">卦象解读</div>
+          <div class="tricard-grid">
+            <div class="tricard">
+              <div class="tricard-label">当前态势</div>
+              <div class="tricard-value" id="tc-situation"></div>
+            </div>
+            <div class="tricard">
+              <div class="tricard-label">机会点</div>
+              <div class="tricard-value" id="tc-opportunity"></div>
+            </div>
+            <div class="tricard">
+              <div class="tricard-label">风险点</div>
+              <div class="tricard-value" id="tc-risk"></div>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-label">建议行动</div>
+          <div class="action-list" id="action-list"></div>
+        </div>
+        <div class="section">
+          <div class="section-label">宜 · 忌</div>
+          <div class="do-dont-row">
+            <div class="do-block">
+              <div class="do-title">宜</div>
+              <div id="do-list"></div>
+            </div>
+            <div class="dont-block">
+              <div class="dont-title">忌</div>
+              <div id="dont-list"></div>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-label">分维度解读</div>
+          <div id="dim-list"></div>
+        </div>
+        <div class="section">
+          <div class="section-label">时间窗口</div>
+          <div class="time-window-box">
+            <div class="time-icon">⏳</div>
+            <div class="time-text" id="time-window-text"></div>
+          </div>
+        </div>
+      </div>
+      <div class="result-cta">
+        <button class="btn btn-primary" onclick="openPoster()">生成图片</button>
+        <button class="btn btn-secondary" onclick="startDraw()">再测一次</button>
+        <div class="result-disclaimer">内容仅供娱乐参考，不构成专业建议。如涉及重大决策，请咨询专业人士。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── HISTORY ── -->
+  <div id="screen-history" class="screen">
+    <div class="nav">
+      <button class="nav-back" onclick="goTo('home')">←</button>
+      <div class="nav-title">历史记录</div>
+      <button class="nav-action" onclick="clearHistory()" title="清空">🗑</button>
+    </div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+
+  <!-- ── DISCLAIMER ── -->
+  <div id="screen-disclaimer" class="screen">
+    <div class="nav">
+      <button class="nav-back" onclick="goTo('home')">←</button>
+      <div class="nav-title">免责声明</div>
+      <div style="width:36px"></div>
+    </div>
+    <div class="disclaimer-body">
+      <p>本应用"抽一卦"基于中国传统易经八卦理论，提供运势参考与心理暗示，帮助用户在迷茫时获得方向感与内心安定。</p>
+      <h3>内容性质</h3>
+      <p>所有解读内容仅供<strong>娱乐与参考</strong>，不构成任何专业意见，包括但不限于医疗、法律、投资、心理咨询等专业建议。</p>
+      <h3>数据隐私</h3>
+      <p>您输入的问题及占卜结果<strong>仅储存在本设备本地</strong>，不会上传至任何服务器，不会用于商业目的。</p>
+      <h3>使用建议</h3>
+      <p>如涉及重大人生决策，请务必结合实际情况，并咨询相关领域的专业人士。卦象结果仅代表一种可能性视角，最终选择权在您自己。</p>
+    </div>
+  </div>
+</div>
+
+<!-- Poster modal -->
+<div class="poster-modal" id="poster-modal" onclick="closePosterByOverlay(event)">
+  <div class="poster-sheet">
+    <div class="poster-handle"></div>
+    <div class="poster-preview">
+      <canvas id="poster-canvas"></canvas>
+    </div>
+    <button class="btn btn-primary" onclick="downloadPoster()">保存图片</button>
+    <button class="btn btn-ghost" onclick="closePoster()" style="margin-top:8px;width:100%">关闭</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────
+//  DATA
+// ─────────────────────────────────────
+const BAGUA = [
+  { id:'qian', name:'乾', nature:'天', element:'金', lines:[1,1,1], keywords:['刚健','创始','纯阳'] },
+  { id:'dui',  name:'兑', nature:'泽', element:'金', lines:[1,1,0], keywords:['喜悦','和谐','口才'] },
+  { id:'li',   name:'离', nature:'火', element:'火', lines:[1,0,1], keywords:['光明','文明','依附'] },
+  { id:'zhen', name:'震', nature:'雷', element:'木', lines:[0,0,1], keywords:['震动','奋发','变革'] },
+  { id:'xun',  name:'巽', nature:'风', element:'木', lines:[0,1,1], keywords:['顺从','柔和','入渗'] },
+  { id:'kan',  name:'坎', nature:'水', element:'水', lines:[0,1,0], keywords:['险陷','智慧','流动'] },
+  { id:'gen',  name:'艮', nature:'山', element:'土', lines:[1,0,0], keywords:['静止','笃实','止行'] },
+  { id:'kun',  name:'坤', nature:'地', element:'土', lines:[0,0,0], keywords:['柔顺','包容','承载'] },
+];
+const BAGUA_MAP = {};
+BAGUA.forEach(b => BAGUA_MAP[b.id] = b);
+
+const HEX_NAMES = {
+  qian_qian:'乾为天', qian_dui:'天泽履', qian_li:'天火同人', qian_zhen:'天雷无妄',
+  qian_xun:'天风姤', qian_kan:'天水讼', qian_gen:'天山遁', qian_kun:'天地否',
+  dui_qian:'泽天夬', dui_dui:'兑为泽', dui_li:'泽火革', dui_zhen:'泽雷随',
+  dui_xun:'泽风大过', dui_kan:'泽水困', dui_gen:'泽山咸', dui_kun:'泽地萃',
+  li_qian:'火天大有', li_dui:'火泽睽', li_li:'离为火', li_zhen:'火雷噬嗑',
+  li_xun:'火风鼎', li_kan:'火水未济', li_gen:'火山旅', li_kun:'火地晋',
+  zhen_qian:'雷天大壮', zhen_dui:'雷泽归妹', zhen_li:'雷火丰', zhen_zhen:'震为雷',
+  zhen_xun:'雷风恒', zhen_kan:'雷水解', zhen_gen:'雷山小过', zhen_kun:'雷地豫',
+  xun_qian:'风天小畜', xun_dui:'风泽中孚', xun_li:'风火家人', xun_zhen:'风雷益',
+  xun_xun:'巽为风', xun_kan:'风水涣', xun_gen:'风山渐', xun_kun:'风地观',
+  kan_qian:'水天需', kan_dui:'水泽节', kan_li:'水火既济', kan_zhen:'水雷屯',
+  kan_xun:'水风井', kan_kan:'坎为水', kan_gen:'水山蹇', kan_kun:'水地比',
+  gen_qian:'山天大畜', gen_dui:'山泽损', gen_li:'山火贲', gen_zhen:'山雷颐',
+  gen_xun:'山风蛊', gen_kan:'山水蒙', gen_gen:'艮为山', gen_kun:'山地剥',
+  kun_qian:'地天泰', kun_dui:'地泽临', kun_li:'地火明夷', kun_zhen:'地雷复',
+  kun_xun:'地风升', kun_kan:'地水师', kun_gen:'地山谦', kun_kun:'坤为地',
+};
+
+// ─────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────
+let state = {
+  screen: 'home',
+  question: '',
+  upper: null,
+  lower: null,
+  drawStep: 0, // 0=before upper, 1=after upper / before lower, 2=complete
+  interpreting: false,
+  result: null,
+  sessionId: null,
+};
+
+// ─────────────────────────────────────
+//  NAVIGATION
+// ─────────────────────────────────────
+function goTo(name) {
+  const current = document.getElementById('screen-' + state.screen);
+  if (current) {
+    current.classList.remove('active');
+    current.classList.add('exit-left');
+    setTimeout(() => current.classList.remove('exit-left'), 300);
+  }
+  state.screen = name;
+  const next = document.getElementById('screen-' + name);
+  if (next) {
+    setTimeout(() => next.classList.add('active'), 30);
+  }
+}
+
+// ─────────────────────────────────────
+//  HOME — 隐形输入
+// ─────────────────────────────────────
+const invisibleInput = document.getElementById('home-invisible-input');
+const typedEl = document.getElementById('home-typed-text');
+const placeholderEl = document.getElementById('home-placeholder');
+const cursorEl = document.getElementById('home-cursor');
+
+// 点击首页任何地方 → 聚焦隐形输入框
+document.getElementById('screen-home').addEventListener('click', function(e) {
+  if (e.target.closest('.home-bottom')) return; // 不拦截按钮区
+  invisibleInput.focus();
+});
+
+invisibleInput.addEventListener('input', function() {
+  const val = this.value;
+  if (val.length > 0) {
+    placeholderEl.style.display = 'none';
+    typedEl.style.display = 'inline';
+    cursorEl.style.display = 'inline-block';
+    typedEl.textContent = val;
+  } else {
+    placeholderEl.style.display = '';
+    typedEl.style.display = 'none';
+    cursorEl.style.display = 'none';
+    typedEl.textContent = '';
+  }
+});
+
+// 聚焦时显示光标
+invisibleInput.addEventListener('focus', function() {
+  cursorEl.style.display = 'inline-block';
+  if (this.value.length === 0) placeholderEl.style.opacity = '0.5';
+});
+invisibleInput.addEventListener('blur', function() {
+  if (this.value.length === 0) {
+    cursorEl.style.display = 'none';
+    placeholderEl.style.opacity = '';
+  }
+});
+
+// 回车直接起卦
+invisibleInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); startDraw(); }
+});
+
+function startDraw() {
+  state.question = invisibleInput.value.trim();
+  state.upper = null; state.lower = null;
+  state.drawStep = 0;
+  state.result = null;
+  state.sessionId = Date.now().toString(36);
+  resetDrawUI();
+  goTo('draw');
+}
+
+// ─────────────────────────────────────
+//  DRAW
+// ─────────────────────────────────────
+function resetDrawUI() {
+  setProgress(0);
+  document.getElementById('draw-stage-label').textContent = '第一签';
+  document.getElementById('draw-stage-title').textContent = '摇动蓍草，起上卦';
+  document.getElementById('draw-hint').textContent = '专心想着您的问题';
+  document.getElementById('draw-action-btn').textContent = '✦ 摇签起卦';
+  document.getElementById('draw-action-btn').disabled = false;
+  document.getElementById('draw-restart-btn').style.display = 'none';
+  const card = document.getElementById('trigram-card');
+  card.classList.remove('revealed');
+  document.getElementById('trigram-name').textContent = '';
+  document.getElementById('trigram-nature').textContent = '';
+  document.getElementById('trigram-keywords').innerHTML = '';
+  renderGlyph('glyph-top','glyph-mid','glyph-bot', null);
+}
+
+function setProgress(step) {
+  // step 0: both blank, step 1: first done+active, step 2: both done
+  const p0 = document.getElementById('prog-0');
+  const p1 = document.getElementById('prog-1');
+  p0.className = 'progress-step' + (step >= 1 ? ' done' : step === 0 ? ' active' : '');
+  p1.className = 'progress-step' + (step >= 2 ? ' done' : step === 1 ? ' active' : '');
+}
+
+let shuffleTimer = null;
+function handleDrawAction() {
+  if (state.drawStep === 0) performDraw('upper');
+  else if (state.drawStep === 1) performDraw('lower');
+}
+
+function performDraw(which) {
+  const btn = document.getElementById('draw-action-btn');
+  btn.disabled = true;
+  document.getElementById('draw-hint').textContent = '正在起卦……';
+
+  const glyph = document.getElementById('trigram-glyph');
+  glyph.classList.add('shuffling');
+  let flips = 0;
+  shuffleTimer = setInterval(() => {
+    const fake = BAGUA[Math.floor(Math.random() * 8)];
+    renderGlyph('glyph-top','glyph-mid','glyph-bot', fake.lines);
+    flips++;
+    if (flips > 18) {
+      clearInterval(shuffleTimer);
+      glyph.classList.remove('shuffling');
+      const chosen = BAGUA[Math.floor(Math.random() * 8)];
+      renderGlyph('glyph-top','glyph-mid','glyph-bot', chosen.lines);
+      revealTrigram(which, chosen);
+    }
+  }, 60);
+}
+
+function revealTrigram(which, trigram) {
+  if (which === 'upper') state.upper = trigram;
+  else state.lower = trigram;
+
+  const card = document.getElementById('trigram-card');
+  card.classList.add('revealed');
+  document.getElementById('trigram-name').textContent = trigram.name;
+  document.getElementById('trigram-nature').textContent = trigram.nature + '・' + trigram.element;
+  const kwEl = document.getElementById('trigram-keywords');
+  kwEl.innerHTML = trigram.keywords.map(k => `<span class="kw-tag">${k}</span>`).join('');
+
+  if (which === 'upper') {
+    state.drawStep = 1;
+    setProgress(1);
+    document.getElementById('draw-stage-label').textContent = '第二签';
+    document.getElementById('draw-stage-title').textContent = '再次摇动，起下卦';
+    document.getElementById('draw-hint').textContent = trigram.name + '卦已定，继续起下卦';
+    document.getElementById('draw-action-btn').textContent = '✦ 再次摇签';
+    document.getElementById('draw-action-btn').disabled = false;
+    document.getElementById('draw-restart-btn').style.display = 'block';
+  } else {
+    state.drawStep = 2;
+    setProgress(2);
+    document.getElementById('draw-stage-label').textContent = '卦成';
+    document.getElementById('draw-stage-title').textContent = '上' + state.upper.name + '下' + state.lower.name + '，正在解卦';
+    document.getElementById('draw-hint').textContent = '两卦已定，正在生成解析……';
+    document.getElementById('draw-action-btn').style.display = 'none';
+    document.getElementById('draw-restart-btn').style.display = 'none';
+    setTimeout(() => {
+      goTo('result');
+      interpret();
+    }, 900);
+  }
+}
+
+function renderGlyph(topId, midId, botId, lines) {
+  // lines[0]=bottom, lines[1]=mid, lines[2]=top
+  // displayed top→mid→bot
+  const order = lines ? [lines[2], lines[1], lines[0]] : [null, null, null];
+  [topId, midId, botId].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    const yang = order[i];
+    if (yang === null) {
+      el.innerHTML = '<div class="glyph-seg glyph-yang" style="background:var(--line)"></div>';
+    } else if (yang === 1) {
+      el.innerHTML = '<div class="glyph-seg glyph-yang"></div>';
+    } else {
+      el.innerHTML = '<div class="glyph-seg glyph-yin-l"></div><div class="glyph-seg glyph-yin-r"></div>';
+    }
+  });
+}
+
+function renderGlyphInEl(container, lines, size='normal') {
+  // lines: [bot, mid, top]
+  const order = [lines[2], lines[1], lines[0]]; // top→mid→bot
+  const yangW = size === 'small' ? 48 : 72;
+  const yinW = size === 'small' ? 18 : 28;
+  const gap = size === 'small' ? 6 : 8;
+  const h = size === 'small' ? 4 : 5;
+
+  container.innerHTML = '';
+  order.forEach(yang => {
+    const row = document.createElement('div');
+    row.className = 'glyph-line';
+    row.style.gap = gap + 'px';
+    if (yang === 1) {
+      const s = document.createElement('div');
+      s.className = 'glyph-seg glyph-yang';
+      s.style.width = yangW + 'px';
+      s.style.height = h + 'px';
+      row.appendChild(s);
+    } else {
+      ['l','r'].forEach(() => {
+        const s = document.createElement('div');
+        s.className = 'glyph-seg';
+        s.style.width = yinW + 'px';
+        s.style.height = h + 'px';
+        s.style.background = 'var(--accent)';
+        row.appendChild(s);
+      });
+    }
+    container.appendChild(row);
+  });
+}
+
+// ─────────────────────────────────────
+//  INTERPRET via Claude API
+// ─────────────────────────────────────
+async function interpret() {
+  document.getElementById('result-loading').style.display = 'flex';
+  document.getElementById('result-ready').style.display = 'none';
+
+  const hexKey = state.upper.id + '_' + state.lower.id;
+  const hexName = HEX_NAMES[hexKey] || state.upper.nature + state.lower.nature;
+  const q = state.question || '（未填写具体问题）';
+
+  const prompt = `你是一位精通易经的占卜师，请用结构化方式解读以下卦象，并严格以JSON格式返回，不要包含任何Markdown或代码块标记。
+
+求卦者问题：${q}
+卦象：${hexName}（上卦：${state.upper.name}/${state.upper.nature}，下卦：${state.lower.name}/${state.lower.nature}）
+
+请返回以下JSON结构（所有字段必须填写，不得为空）：
+{
+  "hexName": "${hexName}",
+  "keywords": ["关键词1","关键词2","关键词3"],
+  "overview": "总体结论（50-120字，结合求卦者问题，使用建议与倾向性表达）",
+  "situation": "当前态势（15字内）",
+  "opportunity": "机会点（15字内）",
+  "risk": "风险点（15字内）",
+  "actions": ["建议行动1","建议行动2","建议行动3"],
+  "do": ["宜1","宜2","宜3"],
+  "dont": ["忌1","忌2","忌3"],
+  "dimensions": {
+    "love": "感情运势解读（30-50字）",
+    "career": "事业运势解读（30-50字）",
+    "wealth": "财运解读（30-50字）",
+    "health": "健康建议（30-50字）"
+  },
+  "timeWindow": "时间窗口提示（30-50字，如未来7天、30天等适宜或不宜的方向）"
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    let text = data.content?.find(b => b.type === 'text')?.text || '';
+    text = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(text);
+    state.result = parsed;
+  } catch (e) {
+    // Fallback result
+    state.result = {
+      hexName: HEX_NAMES[state.upper.id + '_' + state.lower.id] || state.upper.name + state.lower.name,
+      keywords: state.upper.keywords.slice(0,2).concat(state.lower.keywords.slice(0,1)),
+      overview: `本卦上为${state.upper.name}（${state.upper.nature}），下为${state.lower.name}（${state.lower.nature}）。${state.upper.keywords[0]}与${state.lower.keywords[0]}相合，宜稳中求进，顺势而为，不宜强行突破，保持内心平静为要。`,
+      situation: '形势尚稳，变化将至',
+      opportunity: '顺时而动有所得',
+      risk: '急进则生阻力',
+      actions: ['保持耐心，等待时机', '与信任之人多沟通', '以柔克刚，灵活应变'],
+      do: ['静待时机', '谦逊待人', '量力而行'],
+      dont: ['冒进行事', '意气用事', '轻信他人'],
+      dimensions: {
+        love: '感情宜以真诚相待，勿急于求成，顺其自然则缘分自来。',
+        career: '事业方面宜积累实力，暂不宜大幅变动，守正待时。',
+        wealth: '财运平稳，宜守不宜攻，理财需谨慎，避免冒险投资。',
+        health: '注意作息规律，劳逸结合，心态平和则身体自安。'
+      },
+      timeWindow: '近期7天宜保持现状，30天内或有转机，把握好变化的节点方可顺势而上。'
+    };
+  }
+
+  renderResult();
+  saveToHistory();
+}
+
+function renderResult() {
+  const r = state.result;
+  const upper = state.upper;
+  const lower = state.lower;
+
+  // Trigrams
+  renderGlyphInEl(document.getElementById('res-upper-glyph'), upper.lines, 'small');
+  document.getElementById('res-upper-name').textContent = upper.name;
+  document.getElementById('res-upper-nature').textContent = upper.nature;
+  renderGlyphInEl(document.getElementById('res-lower-glyph'), lower.lines, 'small');
+  document.getElementById('res-lower-name').textContent = lower.name;
+  document.getElementById('res-lower-nature').textContent = lower.nature;
+
+  document.getElementById('res-hex-name').textContent = r.hexName;
+  const kwEl = document.getElementById('res-hex-kws');
+  kwEl.innerHTML = (r.keywords||[]).map(k => `<span class="kw-tag">${k}</span>`).join('');
+
+  const qBox = document.getElementById('res-question-box');
+  if (state.question) {
+    qBox.style.display = 'block';
+    document.getElementById('res-question-text').textContent = state.question;
+  } else { qBox.style.display = 'none'; }
+
+  document.getElementById('sec-overview-text').textContent = r.overview;
+  document.getElementById('tc-situation').textContent = r.situation;
+  document.getElementById('tc-opportunity').textContent = r.opportunity;
+  document.getElementById('tc-risk').textContent = r.risk;
+
+  const actionEl = document.getElementById('action-list');
+  actionEl.innerHTML = (r.actions||[]).map((a,i) =>
+    `<div class="action-item"><div class="action-num">${i+1}</div><div class="action-text">${a}</div></div>`
+  ).join('');
+
+  document.getElementById('do-list').innerHTML = (r.do||[]).map(d => `<div class="do-item">・${d}</div>`).join('');
+  document.getElementById('dont-list').innerHTML = (r.dont||[]).map(d => `<div class="dont-item">・${d}</div>`).join('');
+
+  const dims = [
+    { key:'love', icon:'❤️', name:'感情' },
+    { key:'career', icon:'💼', name:'事业' },
+    { key:'wealth', icon:'💰', name:'财运' },
+    { key:'health', icon:'🌿', name:'健康' },
+  ];
+  const dimEl = document.getElementById('dim-list');
+  dimEl.innerHTML = dims.map(d => `
+    <div class="dim-item">
+      <div class="dim-header" onclick="toggleDim(this)">
+        <div class="dim-header-left">
+          <span class="dim-icon">${d.icon}</span>
+          <span class="dim-name">${d.name}</span>
+        </div>
+        <span class="dim-chevron">▼</span>
+      </div>
+      <div class="dim-body">${(r.dimensions||{})[d.key] || ''}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('time-window-text').textContent = r.timeWindow;
+
+  document.getElementById('result-loading').style.display = 'none';
+  document.getElementById('result-ready').style.display = 'flex';
+}
+
+function toggleDim(header) {
+  const item = header.closest('.dim-item');
+  const body = item.querySelector('.dim-body');
+  const isOpen = item.classList.contains('open');
+  item.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+// ─────────────────────────────────────
+//  HISTORY
+// ─────────────────────────────────────
+function saveToHistory() {
+  const records = getHistory();
+  const entry = {
+    id: state.sessionId,
+    date: new Date().toISOString(),
+    question: state.question,
+    upper: state.upper.id,
+    lower: state.lower.id,
+    hexName: state.result?.hexName || '',
+    keywords: state.result?.keywords || [],
+    result: state.result,
+  };
+  records.unshift(entry);
+  if (records.length > 50) records.splice(50);
+  try { localStorage.setItem('iching_history', JSON.stringify(records)); } catch(e){}
+}
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem('iching_history') || '[]'); } catch(e){ return []; }
+}
+
+function renderHistory() {
+  const records = getHistory();
+  const el = document.getElementById('history-list');
+  if (!records.length) {
+    el.innerHTML = '<div class="history-empty">尚无历史记录<br>完成一次占卜后自动保存</div>';
+    return;
+  }
+  el.innerHTML = records.map(r => {
+    const d = new Date(r.date);
+    const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
+    const upper = BAGUA_MAP[r.upper];
+    const lower = BAGUA_MAP[r.lower];
+    const q = r.question || '（未填写问题）';
+    return `<div class="history-item" onclick="loadHistory('${r.id}')">
+      <div class="history-item-left">
+        <div class="history-hex-mini">${upper?.name||''}·${lower?.name||''}</div>
+      </div>
+      <div class="history-item-body">
+        <div class="history-item-name">${r.hexName}</div>
+        <div class="history-item-q">${q}</div>
+      </div>
+      <div class="history-item-date">${dateStr}</div>
+    </div>`;
+  }).join('');
+}
+
+function loadHistory(id) {
+  const records = getHistory();
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+  state.sessionId = r.id;
+  state.question = r.question;
+  state.upper = BAGUA_MAP[r.upper];
+  state.lower = BAGUA_MAP[r.lower];
+  state.result = r.result;
+  renderResult();
+  goTo('result');
+}
+
+function clearHistory() {
+  if (!confirm('确认清空所有历史记录？')) return;
+  try { localStorage.removeItem('iching_history'); } catch(e){}
+  renderHistory();
+  showToast('历史记录已清空');
+}
+
+// intercept history navigation
+const origGoTo = goTo;
+window.goTo = function(name) {
+  if (name === 'history') renderHistory();
+  if (name === 'home') {
+    // reset invisible input display
+    invisibleInput.value = '';
+    typedEl.style.display = 'none';
+    typedEl.textContent = '';
+    cursorEl.style.display = 'none';
+    placeholderEl.style.display = '';
+    placeholderEl.style.opacity = '';
+  }
+  origGoTo(name);
+};
+
+// ─────────────────────────────────────
+//  POSTER
+// ─────────────────────────────────────
+async function openPoster() {
+  await drawPoster();
+  document.getElementById('poster-modal').classList.add('open');
+}
+function closePoster() {
+  document.getElementById('poster-modal').classList.remove('open');
+}
+function closePosterByOverlay(e) {
+  if (e.target === document.getElementById('poster-modal')) closePoster();
+}
+
+async function drawPoster() {
+  const canvas = document.getElementById('poster-canvas');
+  const W = 1080, H = 1920;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  await document.fonts.ready;
+
+  const serif = "'Noto Serif SC', 'Songti SC', serif";
+
+  // Background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle grid
+  ctx.strokeStyle = 'rgba(200,200,195,0.4)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Top bar
+  ctx.fillStyle = '#2f3a4a';
+  ctx.fillRect(0, 0, W, 140);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 52px ${serif}`;
+  ctx.textAlign = 'center';
+  ctx.fillText('起卦', W/2, 92);
+
+  const now = new Date();
+  ctx.font = `300 28px ${serif}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.fillText(`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`, W/2, 128);
+
+  // Question
+  const q = state.question || '';
+  if (q) {
+    ctx.fillStyle = '#111111';
+    ctx.font = `300 32px ${serif}`;
+    ctx.textAlign = 'center';
+    posterWrapText(ctx, `「 ${q} 」`, W/2, 220, W-160, 46);
+  }
+
+  // Divider
+  const drawHRule = (y) => {
+    ctx.strokeStyle = '#eeeeee'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(80, y); ctx.lineTo(W-80, y); ctx.stroke();
+  };
+  drawHRule(q ? 290 : 200);
+
+  // Trigrams
+  const drawCanvasTrigram = (ctx, tri, cx, cy, label) => {
+    // Label
+    ctx.fillStyle = '#888888'; ctx.font = `300 24px ${serif}`; ctx.textAlign = 'center';
+    ctx.fillText(label, cx, cy - 120);
+
+    // Box
+    const bw = 180, bh = 170;
+    ctx.fillStyle = '#fafaf8';
+    ctx.strokeStyle = '#2f3a4a'; ctx.lineWidth = 2;
+    roundRect(ctx, cx - bw/2, cy - bh/2, bw, bh, 16);
+    ctx.fill(); ctx.stroke();
+
+    // Lines
+    const order = [tri.lines[2], tri.lines[1], tri.lines[0]];
+    const lineYs = [cy - 38, cy, cy + 38];
+    order.forEach((yang, i) => {
+      ctx.fillStyle = '#2f3a4a';
+      if (yang === 1) {
+        ctx.fillRect(cx - 64, lineYs[i] - 6, 128, 12);
+      } else {
+        ctx.fillRect(cx - 64, lineYs[i] - 6, 54, 12);
+        ctx.fillRect(cx + 10, lineYs[i] - 6, 54, 12);
+      }
+    });
+
+    // Name
+    ctx.fillStyle = '#111111'; ctx.font = `600 36px ${serif}`; ctx.textAlign = 'center';
+    ctx.fillText(tri.name, cx, cy + 108);
+    ctx.fillStyle = '#888888'; ctx.font = `300 24px ${serif}`;
+    ctx.fillText(tri.nature, cx, cy + 138);
+  };
+
+  const topY = q ? 480 : 390;
+  drawCanvasTrigram(ctx, state.upper, W/2 - 200, topY, '上卦（外卦）');
+  drawCanvasTrigram(ctx, state.lower, W/2 + 200, topY, '下卦（内卦）');
+
+  // Combine symbol
+  ctx.fillStyle = '#cccccc'; ctx.font = `300 48px ${serif}`; ctx.textAlign = 'center';
+  ctx.fillText('×', W/2, topY + 20);
+
+  // Hex name
+  ctx.fillStyle = '#111111'; ctx.font = `bold 72px ${serif}`; ctx.textAlign = 'center';
+  ctx.fillText(state.result?.hexName || '', W/2, topY + 270);
+
+  // Keywords
+  const kws = state.result?.keywords || [];
+  const kwX = W/2 - (kws.length - 1) * 90;
+  kws.forEach((kw, i) => {
+    const x = kwX + i * 90;
+    ctx.fillStyle = '#f0f3f6';
+    roundRect(ctx, x - 55, topY + 295, 110, 50, 25); ctx.fill();
+    ctx.fillStyle = '#2f3a4a'; ctx.font = `300 24px ${serif}`; ctx.textAlign = 'center';
+    ctx.fillText(kw, x, topY + 328);
+  });
+
+  drawHRule(topY + 380);
+
+  // Overview
+  ctx.fillStyle = '#444444'; ctx.font = `400 28px ${serif}`; ctx.textAlign = 'left';
+  const ovY = posterWrapText(ctx, state.result?.overview || '', 100, topY + 440, W - 200, 50) + 30;
+
+  drawHRule(ovY + 20);
+
+  // Actions
+  const actY = ovY + 80;
+  ctx.fillStyle = '#888888'; ctx.font = `300 24px ${serif}`; ctx.textAlign = 'left';
+  ctx.fillText('建 议 行 动', 100, actY);
+  (state.result?.actions || []).forEach((a, i) => {
+    const y = actY + 50 + i * 60;
+    ctx.fillStyle = '#2f3a4a';
+    ctx.beginPath(); ctx.arc(122, y - 10, 16, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.font = `600 20px ${serif}`; ctx.textAlign = 'center';
+    ctx.fillText(i+1, 122, y - 4);
+    ctx.fillStyle = '#333333'; ctx.font = `400 28px ${serif}`; ctx.textAlign = 'left';
+    ctx.fillText(a, 152, y);
+  });
+
+  // Footer
+  ctx.fillStyle = '#2f3a4a';
+  ctx.fillRect(0, H - 100, W, 100);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = `300 22px ${serif}`; ctx.textAlign = 'center';
+  ctx.fillText('内容仅供娱乐参考，不构成专业建议', W/2, H - 55);
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = `300 20px ${serif}`;
+  ctx.fillText('起卦 · I CHING ORACLE', W/2, H - 25);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y, x+w, y+r, r);
+  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h); ctx.arcTo(x, y+h, x, y+h-r, r);
+  ctx.lineTo(x, y+r); ctx.arcTo(x, y, x+r, y, r);
+  ctx.closePath();
+}
+
+function posterWrapText(ctx, text, x, startY, maxW, lineH) {
+  const chars = text.split('');
+  let line = '', y = startY;
+  for (let i = 0; i < chars.length; i++) {
+    if (chars[i] === '\n') { ctx.fillText(line, x, y); line = ''; y += lineH; continue; }
+    const test = line + chars[i];
+    if (ctx.measureText(test).width > maxW && line) {
+      ctx.fillText(line, x, y); line = chars[i]; y += lineH;
+    } else { line = test; }
+  }
+  if (line) { ctx.fillText(line, x, y); }
+  return y;
+}
+
+function downloadPoster() {
+  const canvas = document.getElementById('poster-canvas');
+  const hexName = state.result?.hexName || '卦象';
+  const link = document.createElement('a');
+  link.download = `抽一卦-${hexName}-${new Date().toLocaleDateString('zh')}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showToast('图片已保存');
+}
+
+// ─────────────────────────────────────
+//  TOAST
+// ─────────────────────────────────────
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
